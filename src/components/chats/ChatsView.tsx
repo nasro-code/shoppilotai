@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import ConversationList from "./ConversationList";
 import ChatWindow from "./ChatWindow";
 
@@ -22,7 +22,7 @@ export interface Conversation {
   messages: Message[];
 }
 
-const mockConversations: Conversation[] = [
+const initialConversations: Conversation[] = [
   {
     id: "1",
     customerName: "Sarah Johnson",
@@ -103,18 +103,104 @@ const mockConversations: Conversation[] = [
   },
 ];
 
+function getTimeNow(): string {
+  return new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export default function ChatsView() {
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string>("1");
-  const selectedConversation = mockConversations.find((c) => c.id === selectedId) || mockConversations[0];
+  const [isLoading, setIsLoading] = useState(false);
+
+  const selectedConversation = conversations.find((c) => c.id === selectedId) || conversations[0];
+
+  const handleSendMessage = useCallback(
+    async (text: string) => {
+      const timeNow = getTimeNow();
+
+      // Add the user message immediately
+      const userMsg: Message = {
+        id: `${selectedId}-${Date.now()}`,
+        sender: "customer",
+        text,
+        time: timeNow,
+      };
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === selectedId
+            ? { ...c, messages: [...c.messages, userMsg], lastMessage: text, time: "Just now" }
+            : c
+        )
+      );
+
+      // Call the API
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to get AI response");
+        }
+
+        const aiMsg: Message = {
+          id: `${selectedId}-ai-${Date.now()}`,
+          sender: "ai",
+          text: data.reply,
+          time: getTimeNow(),
+        };
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedId
+              ? { ...c, messages: [...c.messages, aiMsg], lastMessage: data.reply, time: "Just now" }
+              : c
+          )
+        );
+      } catch (error) {
+        const errMsg: Message = {
+          id: `${selectedId}-err-${Date.now()}`,
+          sender: "ai",
+          text: error instanceof Error ? `Error: ${error.message}` : "Sorry, something went wrong. Please try again.",
+          time: getTimeNow(),
+        };
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedId
+              ? { ...c, messages: [...c.messages, errMsg] }
+              : c
+          )
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [selectedId]
+  );
 
   return (
     <div className="-m-8 flex h-[calc(100vh-4rem)]">
       <ConversationList
-        conversations={mockConversations}
+        conversations={conversations}
         selectedId={selectedId}
         onSelect={setSelectedId}
       />
-      <ChatWindow conversation={selectedConversation} />
+      <ChatWindow
+        conversation={selectedConversation}
+        onSendMessage={handleSendMessage}
+        isLoading={isLoading}
+      />
     </div>
   );
 }
