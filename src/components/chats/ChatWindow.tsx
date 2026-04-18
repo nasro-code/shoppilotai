@@ -6,10 +6,25 @@ import type { Conversation } from "./ChatsView";
 
 interface ChatWindowProps {
   conversation: Conversation;
+  onSendMessage: (text: string) => Promise<void>;
+  isLoading: boolean;
 }
 
-export default function ChatWindow({ conversation }: ChatWindowProps) {
+export default function ChatWindow({ conversation, onSendMessage, isLoading }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState("");
+
+  const handleSend = () => {
+    if (!inputValue.trim() || isLoading) return;
+    onSendMessage(inputValue);
+    setInputValue("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-[#0B0F1A] min-w-0">
@@ -70,6 +85,16 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
             </div>
           );
         })}
+        {isLoading && (
+          <div className="flex gap-3 justify-start animate-pulse">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-600/10 border border-blue-500/10 flex items-center justify-center mt-1">
+              <Bot className="w-4 h-4 text-blue-500/50" />
+            </div>
+            <div className="bg-[#111827] border border-white/5 text-gray-500 px-4 py-3 rounded-2xl rounded-tl-md text-sm">
+              Thinking...
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input area */}
@@ -82,14 +107,20 @@ export default function ChatWindow({ conversation }: ChatWindowProps) {
             rows={1}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none resize-none py-2 max-h-32"
+            disabled={isLoading}
+            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none resize-none py-2 max-h-32 disabled:opacity-50"
           />
           <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors shrink-0">
             <Smile className="w-5 h-5" />
           </button>
-          <button className="p-2 bg-[#3B82F6] hover:bg-blue-600 text-white rounded-xl transition-colors shrink-0">
-            <Send className="w-5 h-5" />
+          <button 
+            onClick={handleSend}
+            disabled={!inputValue.trim() || isLoading}
+            className="p-2 bg-[#3B82F6] hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl transition-colors shrink-0"
+          >
+            <Send className={`w-5 h-5 ${isLoading ? 'animate-pulse' : ''}`} />
           </button>
         </div>
         <p className="text-[10px] text-gray-500 mt-2 text-center">
