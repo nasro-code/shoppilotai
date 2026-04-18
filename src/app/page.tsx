@@ -1,65 +1,69 @@
-import Image from "next/image";
+import KPICard from "@/components/dashboard/KPICard";
+import { MessageSquareText, Clock, Zap } from "lucide-react";
 
-export default function Home() {
+export default function DashboardPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-white">Dashboard Overview</h2>
+        <p className="text-gray-400 mt-1">Here&apos;s what&apos;s happening with your AutoCommerce AI today.</p>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <KPICard 
+          title="Messages Handled" 
+          value="14,295" 
+          icon={<MessageSquareText className="w-6 h-6" />} 
+          trend="+12%" 
+          trendUp={true} 
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <KPICard 
+          title="Avg. Response Time" 
+          value="1.2s" 
+          icon={<Clock className="w-6 h-6" />} 
+          trend="-0.3s" 
+          trendUp={true} 
+        />
+        <KPICard 
+          title="Automation Rate" 
+          value="92.4%" 
+          icon={<Zap className="w-6 h-6" />} 
+          trend="+4.1%" 
+          trendUp={true} 
+        />
+      </div>
+      
+      {/* Dummy charts/boards area */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+        <div className="lg:col-span-4 bg-[#111827] border border-white/5 rounded-2xl p-6 min-h-[400px]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg">Message Volume</h3>
+            <select className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-gray-300 outline-none">
+              <option>Last 7 days</option>
+              <option>Last 30 days</option>
+            </select>
+          </div>
+          <div className="h-full w-full flex items-center justify-center border-t border-white/5 pt-4">
+            <p className="text-sm text-gray-500">Chart Visualization Placeholder</p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        
+        <div className="lg:col-span-3 bg-[#111827] border border-white/5 rounded-2xl p-6 min-h-[400px]">
+          <h3 className="font-semibold text-lg mb-4">Recent Automation Events</h3>
+          <div className="space-y-4 border-t border-white/5 pt-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-start gap-4">
+                <div className="w-2 h-2 rounded-full bg-[#3B82F6] mt-2 shrink-0 shadow-[0_0_8px_#3B82F6]"></div>
+                <div>
+                  <p className="text-sm font-medium text-gray-200">Order #100{i} Processed</p>
+                  <p className="text-xs text-gray-400">AI successfully identified and created tracking link.</p>
+                </div>
+                <div className="ml-auto text-xs text-gray-500">{i * 10}m ago</div>
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
