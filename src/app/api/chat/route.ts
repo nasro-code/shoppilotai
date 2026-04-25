@@ -4,6 +4,7 @@ import { getOrCreateUser, saveMessage } from "@/lib/database";
 import { getOrderById, getShippingStatus, requestRefund } from "@/lib/shopify";
 import { createClient } from "@/utils/supabase/server";
 import { sanitizeInput, sanitizeForToolArg } from "@/lib/sanitize";
+import { chatRateLimit } from "@/lib/ratelimit";
 
 // Initialize OpenAI client with Groq configuration
 const groq = new OpenAI({
@@ -80,6 +81,14 @@ export async function POST(request: NextRequest) {
     
     if (authError || !authUser) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { success, remaining, reset } = await chatRateLimit.limit(authUser.id);
+    if (!success) {
+      return Response.json(
+        { error: "Rate limit exceeded. Please wait before sending another message." },
+        { status: 429, headers: { "X-RateLimit-Remaining": remaining.toString(), "X-RateLimit-Reset": reset.toString() } }
+      );
     }
 
     const body = await request.json();
