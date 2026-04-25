@@ -127,8 +127,9 @@ export async function POST(request: NextRequest) {
       messages.push(responseMessage);
 
       for (const toolCall of responseMessage.tool_calls) {
-        const functionName = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments);
+        const functionName = (toolCall as any).function?.name || (toolCall as any).name;
+        const rawArgs = (toolCall as any).function?.arguments || (toolCall as any).arguments;
+        const args = JSON.parse(typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs));
         let toolResult;
 
         console.log(`Executing tool: ${functionName}`, args);
