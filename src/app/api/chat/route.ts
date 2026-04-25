@@ -1,8 +1,9 @@
 import OpenAI from "openai";
 import { type NextRequest } from "next/server";
 import { getOrCreateUser, saveMessage } from "@/lib/database";
-import { getOrderByEmail } from "@/lib/shopify";
+import { getOrderById, getShippingStatus, requestRefund } from "@/lib/shopify";
 import { createClient } from "@/utils/supabase/server";
+import { sanitizeInput, sanitizeForToolArg } from "@/lib/sanitize";
 
 // Initialize OpenAI client with Groq configuration
 const groq = new OpenAI({
@@ -10,97 +11,151 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-const SYSTEM_PROMPT = `You are an ecommerce AI support agent with access to order data and customer context. 
+const SYSTEM_PROMPT = `You are AutoCommerce AI, a premium customer support agent. 
+You have access to real-time Shopify data and can perform actions on behalf of the customer.
 
-PLAYBOOK & RULES:
-1. **Order Context**: Always check the "CUSTOMER ORDER CONTEXT" provided below. If data exists, use it to answer questions about status, tracking, and items.
-2. **Missing Data**: If the user asks about an order but no order context is provided, ask for their Order ID or clarify which email they used.
-3. **Refunds**:
-    - If 'is_refundable' is true: Guide them on how to return the item (e.g., "You can start a return in your portal").
-    - If 'is_refundable' is false: Explain why (e.g., "Orders currently in 'Processing' status cannot be refunded until they are delivered").
-4. **Shipping**: Provide specific tracking numbers if available. If the status is 'Shipped' but no tracking number is present, apologize and state you'll check with the courier.
-5. **No Hallucination**: NEVER make up tracking numbers, dates, or shipping carriers. If you don't know, say "I don't have that information right now".
-6. **Conciseness**: Keep responses under 3 sentences unless a step-by-step guide is needed.`;
+CAPABILITIES:
+1. **Order Lookup**: You can find orders by ID or check the customer's current order history.
+2. **Shipping Status**: You can check exactly where an order is and provide delivery estimates.
+3. **Refunds**: You can process refunds if the order is eligible.
+4. **Multi-channel**: You can notify customers via Email or WhatsApp (simulated).
+
+RULES:
+- If a customer asks about their order and you don't have the ID, use the 'get_customer_orders' tool first.
+- Before processing a refund, ALWAYS confirm the Order ID and the reason with the customer.
+- Be professional, concise, and helpful.
+- If you perform an action (like a refund), tell the customer you've sent them a confirmation email.
+- NEVER hallucinate data. Use the tools provided.`;
+
+const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "get_order_details",
+      description: "Retrieve full details for a specific Shopify order",
+      parameters: {
+        type: "object",
+        properties: {
+          orderId: { type: "string", description: "The order ID (e.g., AC-12345)" },
+        },
+        required: ["orderId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_shipping_status",
+      description: "Get real-time tracking and delivery estimates for an order",
+      parameters: {
+        type: "object",
+        properties: {
+          orderId: { type: "string", description: "The order ID" },
+        },
+        required: ["orderId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "process_refund",
+      description: "Initiate a refund for an eligible order",
+      parameters: {
+        type: "object",
+        properties: {
+          orderId: { type: "string", description: "The order ID" },
+          reason: { type: "string", description: "The reason for the refund" },
+        },
+        required: ["orderId", "reason"],
+      },
+    },
+  },
+];
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
-    // Get the actual authenticated user
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !authUser) {
-      return Response.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { message } = body;
-    const email = authUser.email!; // Use the real authenticated email
+    let { message } = body;
+    const email = authUser.email!;
 
-    if (!message || typeof message !== "string") {
-      return Response.json(
-        { error: "Missing or invalid 'message' field" },
-        { status: 400 }
-      );
+    if (!message) return Response.json({ error: "Missing message" }, { status: 400 });
+
+    const { sanitized, wasModified } = sanitizeInput(message);
+    if (wasModified) {
+      console.warn("Potentially malicious input detected and sanitized:", message.slice(0, 100));
     }
+    message = sanitized;
 
-    // Check for Groq API key
-    if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === "your_groq_api_key_here") {
-      return Response.json(
-        { error: "Groq API Key is missing or using the placeholder. Please update .env.local with a real key from console.groq.com" },
-        { status: 500 }
-      );
-    }
-
-    // 1. Get or create the user in Supabase
+    // 1. Get or create the user
     const user = await getOrCreateUser(email);
 
-    // 2. Fetch mock Shopify data
-    const order = await getOrderByEmail(email);
-    let orderContext = "";
-    if (order) {
-      orderContext = `
+    // 2. Initial AI call to see if it needs tools
+    let messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: message },
+    ];
 
-CUSTOMER ORDER CONTEXT:
-- Order ID: ${order.order_id}
-- Status: ${order.status}
-- Shipping Date: ${order.shipping_date}
-- Items: ${order.items.join(", ")}
-- Total: ${order.total_price}
-- Tracking: ${order.tracking_number || "Not available yet"}
-- Refund Eligible: ${order.is_refundable ? "Yes" : "No (Orders in 'Processing' or 'Delivered > 30 days' are ineligible)"}`;
-    }
-
-    // 3. Generate the AI response using Groq (Llama 3.3 70B)
-    console.log(`Calling Groq AI for user: ${email}`);
-    const completion = await groq.chat.completions.create({
+    const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT + orderContext },
-        { role: "user", content: message },
-      ],
-      temperature: 0.5,
-      max_tokens: 500,
+      messages,
+      tools,
+      tool_choice: "auto",
+      temperature: 0.2,
     });
 
-    const reply = completion.choices[0]?.message?.content ?? "";
+    let responseMessage = response.choices[0].message;
 
-    // 4. Save the conversation to Supabase
-    try {
-      await saveMessage(user.id, message, reply);
-    } catch (dbError) {
-      console.error("Failed to save message to Supabase:", dbError);
+    // 3. Handle tool calls
+    if (responseMessage.tool_calls) {
+      messages.push(responseMessage);
+
+      for (const toolCall of responseMessage.tool_calls) {
+        const functionName = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments);
+        let toolResult;
+
+        console.log(`Executing tool: ${functionName}`, args);
+
+        if (functionName === "get_order_details") {
+          toolResult = await getOrderById(sanitizeForToolArg(args.orderId), user.id);
+        } else if (functionName === "check_shipping_status") {
+          toolResult = await getShippingStatus(sanitizeForToolArg(args.orderId), user.id);
+        } else if (functionName === "process_refund") {
+          toolResult = await requestRefund(sanitizeForToolArg(args.orderId), sanitizeForToolArg(args.reason), user.id);
+        }
+
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(toolResult || { error: "No data found" }),
+        });
+      }
+
+      // Final completion after tool results
+      const finalResponse = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages,
+      });
+      responseMessage = finalResponse.choices[0].message;
     }
+
+    const reply = responseMessage.content || "";
+
+    // 4. Save to DB
+    await saveMessage(user.id, message, reply);
 
     return Response.json({ reply });
   } catch (error) {
     console.error("Chat API error:", error);
-    return Response.json(
-      { error: "Failed to generate response" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
