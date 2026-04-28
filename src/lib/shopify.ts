@@ -10,6 +10,7 @@ export const shopify = shopifyApi({
   scopes: (process.env.SHOPIFY_SCOPES || '').split(',').filter(Boolean),
   hostName: process.env.SHOPIFY_HOST!.replace(/^https?:\/\//, ''),
   apiVersion: ApiVersion.January26,
+  isEmbeddedApp: false,
   restResources,
 });
 
@@ -147,10 +148,7 @@ export interface RefundResult {
  * Create a Shopify REST session for a specific store
  */
 export async function createSession(shopDomain: string, accessToken: string) {
-  return shopify.session.custom({
-    shop: shopDomain,
-    accessToken,
-  });
+  return shopify.session.customAppSession(shopDomain);
 }
 
 /**
@@ -184,12 +182,12 @@ export async function getUserStore(userId: string): Promise<{
 /**
  * Execute a GraphQL query against Shopify Admin API
  */
-async function shopifyGraphQL<T>(session: ReturnType<typeof shopify.session.custom>, query: string, variables?: Record<string, unknown>): Promise<T | null> {
+async function shopifyGraphQL<T>(session: ReturnType<typeof shopify.session.customAppSession>, query: string, variables?: Record<string, unknown>): Promise<T | null> {
   const client = new shopify.clients.Graphql({ session });
 
   try {
-    const response = await client.query<T>({ data: query, variables });
-    return response.data;
+    const response = await client.query({ data: { query, variables } });
+    return response.body as T;
   } catch (error: any) {
     console.error('Shopify GraphQL error:', error);
     if (error.response?.status === 401) {
@@ -202,11 +200,12 @@ async function shopifyGraphQL<T>(session: ReturnType<typeof shopify.session.cust
 /**
  * Execute a REST API call against Shopify Admin API
  */
-async function shopifyREST(session: ReturnType<typeof shopify.session.custom>, path: string, method?: string, body?: unknown) {
+async function shopifyREST(session: ReturnType<typeof shopify.session.customAppSession>, path: string, method?: string, body?: unknown) {
   const client = new shopify.clients.Rest({ session });
 
   try {
-    const response = await client.request({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await (client as any).request({
       path,
       method: method || 'GET',
       data: body,
@@ -224,7 +223,7 @@ async function shopifyREST(session: ReturnType<typeof shopify.session.custom>, p
 /**
  * Get orders by customer email using GraphQL
  */
-async function getOrdersByEmailGraphQL(session: ReturnType<typeof shopify.session.custom>, email: string): Promise<ShopifyOrder[]> {
+async function getOrdersByEmailGraphQL(session: ReturnType<typeof shopify.session.customAppSession>, email: string): Promise<ShopifyOrder[]> {
   const query = `
     query getOrdersByEmail($query: String!) {
       orders(query: $query, first: 10) {
@@ -460,7 +459,7 @@ async function getOrdersByEmailGraphQL(session: ReturnType<typeof shopify.sessio
  * Get a single order by Shopify Order ID using REST
  */
 async function getOrderByIdREST(
-  session: ReturnType<typeof shopify.session.custom>,
+  session: ReturnType<typeof shopify.session.customAppSession>,
   orderId: string
 ): Promise<ShopifyOrder | null> {
   // Remove any # prefix and get the numeric ID
@@ -573,7 +572,7 @@ async function getOrderByIdREST(
  */
 export async function getOrderById(orderId: string, userId?: string): Promise<ShopifyOrder | null> {
   // If userId provided, get their store; otherwise use default session
-  let session: ReturnType<typeof shopify.session.custom>;
+  let session: ReturnType<typeof shopify.session.customAppSession>;
 
   if (userId) {
     const store = await getUserStore(userId);
@@ -595,7 +594,7 @@ export async function getOrderById(orderId: string, userId?: string): Promise<Sh
  * Retrieve orders by customer email
  */
 export async function getOrderByEmail(email: string, userId?: string): Promise<ShopifyOrder[]> {
-  let session: ReturnType<typeof shopify.session.custom>;
+  let session: ReturnType<typeof shopify.session.customAppSession>;
 
   if (userId) {
     const store = await getUserStore(userId);
@@ -664,7 +663,7 @@ export async function requestRefund(
   userId?: string,
   refundAmount?: string
 ): Promise<RefundResult> {
-  let session: ReturnType<typeof shopify.session.custom>;
+  let session: ReturnType<typeof shopify.session.customAppSession>;
 
   if (userId) {
     const store = await getUserStore(userId);
@@ -745,7 +744,7 @@ export async function requestRefund(
  * Retrieve all orders for a store (paginated)
  */
 export async function getAllOrders(userId?: string, limit: number = 50): Promise<ShopifyOrder[]> {
-  let session: ReturnType<typeof shopify.session.custom>;
+  let session: ReturnType<typeof shopify.session.customAppSession>;
 
   if (userId) {
     const store = await getUserStore(userId);
@@ -834,7 +833,7 @@ export async function getAllOrders(userId?: string, limit: number = 50): Promise
  * Get customer by email
  */
 export async function getCustomerByEmail(email: string, userId?: string): Promise<ShopifyCustomer | null> {
-  let session: ReturnType<typeof shopify.session.custom>;
+  let session: ReturnType<typeof shopify.session.customAppSession>;
 
   if (userId) {
     const store = await getUserStore(userId);
@@ -895,7 +894,9 @@ export async function getCustomerByEmail(email: string, userId?: string): Promis
  */
 export async function connectStore(shopDomain: string, authCode: string) {
   try {
-    const session = await shopify.auth.sessionFromCallback({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const auth = shopify.auth as any;
+    const session = await auth.sessionFromCallback({
       isOnline: false,
       rawRequest: {
         query: `?shop=${encodeURIComponent(shopDomain)}&code=${authCode}&state=`,
@@ -917,7 +918,9 @@ export async function connectStore(shopDomain: string, authCode: string) {
  * Get OAuth URL to start store connection
  */
 export async function getConnectUrl(shopDomain: string, callbackPath: string = '/api/shopify/callback') {
-  const authUrl = await shopify.auth.begin({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const auth = shopify.auth as any;
+  const authUrl = await auth.begin({
     shop: shopDomain,
     callbackPath,
     isOnline: false,

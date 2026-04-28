@@ -12,7 +12,7 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-const SYSTEM_PROMPT = `You are AutoCommerce AI, a premium customer support agent. 
+const SYSTEM_PROMPT = `You are Shoppilot AI, a premium customer support agent. 
 You have access to real-time Shopify data and can perform actions on behalf of the customer.
 
 CAPABILITIES:
@@ -127,9 +127,10 @@ export async function POST(request: NextRequest) {
       messages.push(responseMessage);
 
       for (const toolCall of responseMessage.tool_calls) {
-        const functionName = (toolCall as any).function?.name || (toolCall as any).name;
-        const rawArgs = (toolCall as any).function?.arguments || (toolCall as any).arguments;
-        const args = JSON.parse(typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs));
+        const fn = (toolCall as any).function;
+        if (!fn) continue;
+        const functionName = fn.name;
+        const args = JSON.parse(fn.arguments);
         let toolResult;
 
         console.log(`Executing tool: ${functionName}`, args);

@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'AutoCommerce AI <onboarding@resend.dev>';
+const FROM_EMAIL = process.env.EMAIL_FROM || 'Shoppilot AI <onboarding@resend.dev>';
 
 interface EmailResult {
   success: boolean;
@@ -58,14 +58,14 @@ function emailWrapper(content: string) {
       </head>
       <body>
         <div class="header">
-          <h1 style="margin:0;">AutoCommerce AI</h1>
+          <h1 style="margin:0;">Shoppilot AI</h1>
           <p style="margin: 8px 0 0;">Intelligent Customer Support</p>
         </div>
         <div class="content">
           ${content}
         </div>
         <div class="footer">
-          <p>Powered by AutoCommerce AI</p>
+          <p>Powered by Shoppilot AI</p>
         </div>
       </body>
     </html>
@@ -119,7 +119,7 @@ export async function sendShippingNotification(to: string, orderId: string, trac
 export async function sendWelcomeEmail(to: string, shopName?: string) {
   const shop = shopName ? ` from ${shopName}` : '';
   const html = emailWrapper(`
-    <h2 style="margin-top:0;">Welcome to AutoCommerce AI!</h2>
+    <h2 style="margin-top:0;">Welcome to Shoppilot AI!</h2>
     <p>Thank you for connecting your store${shop}.</p>
     <p>You can now use our AI-powered customer support to:</p>
     <ul>
@@ -131,5 +131,5 @@ export async function sendWelcomeEmail(to: string, shopName?: string) {
     <p>Get started by chatting with our AI assistant.</p>
   `);
 
-  return sendEmail(to, 'Welcome to AutoCommerce AI!', html);
+  return sendEmail(to, 'Welcome to Shoppilot AI!', html);
 }

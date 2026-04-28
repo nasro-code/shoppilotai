@@ -1,18 +1,180 @@
 @import "tailwindcss";
 
+/* Design System Tokens from Design.md */
 :root {
-  --background: #0B0F1A;
-  --foreground: #F3F4F6;
+  /* Colors */
+  --color-primary: #10B981;
+  --color-secondary: #0F172A;
+  --color-tertiary: #EF4444;
+  --color-neutral: #FFFFFF;
+  --color-background: #FFFFFF;
+  --color-surface: #10B981;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-border: #F1F5F9;
+  --color-accent: #10B981;
+
+  /* Spacing */
+  --spacing-base: 4px;
+  --spacing-sm: 1px;
+  --spacing-md: 2px;
+  --spacing-lg: 4px;
+  --spacing-xl: 6px;
+  --spacing-gap: 4px;
+  --spacing-card-padding: 9px;
+  --spacing-section-padding: 24px;
+
+  /* Rounded */
+  --rounded-md: 8px;
+  --rounded-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
+  --shadow-md: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px;
+  --shadow-lg: rgba(0, 0, 0, 0.08) 0px 12px 48px -12px;
+
+  /* Blur */
+  --blur-sm: 8px;
+  --blur-md: 12px;
+
+  /* Border */
+  --border-color: #F1F5F9;
+  --border-subtle: #E2E8F0;
+  --border-medium: #CBD5E1;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-text-primary);
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-tertiary: var(--color-tertiary);
+  --color-surface: var(--color-surface);
+  --color-border: var(--color-border);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-accent: var(--color-accent);
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Inter", system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* Gradient border shell utility */
+.gradient-border-shell {
+  position: relative;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(
+    rgba(226, 232, 240, 0.8),
+    rgba(241, 245, 249, 0.5),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.gradient-border-shell > .gradient-border-content {
+  border-radius: 23px;
+  background: var(--color-background);
+}
+
+/* Glass surface treatment */
+.glass-surface {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border-radius: var(--rounded-full);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  border: 0px solid rgb(229, 231, 235);
+  transition: all 150ms ease;
+}
+
+.btn-primary:hover {
+  background-color: #FEE2E2;
+}
+
+.btn-secondary {
+  color: #475569;
+  border-radius: var(--rounded-md);
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  border: 0.666667px solid rgb(226, 232, 240);
+  transition: all 150ms ease;
+}
+
+.btn-secondary:hover {
+  background-color: #F8FAFC;
+}
+
+.btn-link {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  border-radius: var(--rounded-full);
+  padding: 8px 16px;
+  border: 0px solid rgb(229, 231, 235);
+  transition: all 150ms ease;
+}
+
+.btn-link:hover {
+  background-color: #F8FAFC;
+}
+
+/* Card styles */
+.card {
+  background-color: var(--color-neutral);
+  border: 0.666667px solid var(--border-color);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-elevated {
+  background-color: var(--color-neutral);
+  border: 0.666667px solid var(--border-color);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.card-compact {
+  background-color: var(--color-neutral);
+  border: 0.666667px solid var(--border-color);
+  border-radius: 24px;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: var(--rounded-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-medium);
 }

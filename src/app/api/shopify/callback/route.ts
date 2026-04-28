@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import crypto from 'crypto';
 
-const SHOPIFY_HOST = process.env.SHOPIFY_HOST || process.env.NEXT_PUBLIC_BASE_URL || '';
+
+// The base URL where the app is hosted (could be localhost or tunnel URL)
+const APP_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 function verifyShopifyHmac(params: URLSearchParams, secret: string, hmac: string): boolean {
   const excludedParams = ['hmac', 'signature'];
@@ -28,62 +30,78 @@ function verifyShopifyHmac(params: URLSearchParams, secret: string, hmac: string
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
 
     const shop = searchParams.get('shop');
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const hmac = searchParams.get('hmac');
+    const errorParam = searchParams.get('error');
+    const errorDesc = searchParams.get('error_description');
 
-    const baseUrl = SHOPIFY_HOST || request.url;
+    console.log('[Shopify Callback] Received params:', {
+      shop,
+      code: code ? `${code.substring(0, 8)}...` : null,
+      state: state ? 'present' : null,
+      hmac: hmac ? 'present' : null,
+      error: errorParam,
+      error_description: errorDesc,
+    });
+
+    // Handle Shopify OAuth error redirect
+    if (errorParam) {
+      console.error('[Shopify Callback] OAuth error from Shopify:', errorParam, errorDesc);
+      return NextResponse.redirect(
+        new URL(`/settings?shopify_error=${encodeURIComponent(errorDesc || errorParam)}`, APP_URL)
+      );
+    }
 
     if (!shop || !code) {
-      return NextResponse.redirect(new URL('/settings?shopify_error=Missing parameters', baseUrl));
+      return NextResponse.redirect(new URL('/settings?shopify_error=Missing parameters (shop or code)', APP_URL));
     }
 
     // Validate shop domain format
     if (!/^[a-zA-Z0-9-]+\.myshopify\.com$/.test(shop)) {
-      return NextResponse.redirect(new URL('/settings?shopify_error=Invalid shop domain', baseUrl));
+      return NextResponse.redirect(new URL('/settings?shopify_error=Invalid shop domain', APP_URL));
     }
 
     // Verify HMAC signature (required for Shopify OAuth)
     if (!hmac) {
-      console.error('HMAC parameter missing from Shopify callback');
-      return NextResponse.redirect(new URL('/settings?shopify_error=Missing HMAC signature', baseUrl));
+      console.error('[Shopify Callback] HMAC parameter missing');
+      return NextResponse.redirect(new URL('/settings?shopify_error=Missing HMAC signature', APP_URL));
     }
 
     const secret = process.env.SHOPIFY_API_SECRET;
     if (!secret) {
-      console.error('SHOPIFY_API_SECRET not configured');
-      return NextResponse.redirect(new URL('/settings?shopify_error=Server configuration error', baseUrl));
+      console.error('[Shopify Callback] SHOPIFY_API_SECRET not configured');
+      return NextResponse.redirect(new URL('/settings?shopify_error=Server configuration error', APP_URL));
     }
 
     if (!verifyShopifyHmac(searchParams, secret, hmac)) {
-      console.error('HMAC verification failed for shop:', shop);
-      return NextResponse.redirect(new URL('/settings?shopify_error=Invalid HMAC signature', baseUrl));
+      console.error('[Shopify Callback] HMAC verification failed for shop:', shop);
+      return NextResponse.redirect(new URL('/settings?shopify_error=Invalid HMAC signature', APP_URL));
     }
 
-    // Decode state to get user ID
+    console.log('[Shopify Callback] HMAC verified successfully for shop:', shop);
+
+    // Decode state to get user ID (passed from install route)
     let userId: string | null = null;
     if (state) {
       try {
         const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
         userId = stateData.userId;
       } catch {
-        // State parsing failed, continue without it
+        console.error('[Shopify Callback] Failed to parse state parameter');
       }
     }
 
-    // If no userId from state, try to get from auth session
     if (!userId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      userId = user?.id || null;
+      console.error('[Shopify Callback] No userId found in state');
+      return NextResponse.redirect(new URL('/settings?shopify_error=Unauthorized - please log in and try again', APP_URL));
     }
 
-    if (!userId) {
-      return NextResponse.redirect(new URL('/settings?shopify_error=Unauthorized', baseUrl));
-    }
+    console.log('[Shopify Callback] UserId from state:', userId);
+    console.log('[Shopify Callback] Exchanging code for access token...');
 
     // Exchange code for access token
     const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
@@ -99,15 +117,25 @@ export async function GET(request: NextRequest) {
       }),
     });
 
+    console.log('[Shopify Callback] Token exchange response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Token exchange error:', errorData);
+      const errorText = await response.text();
+      console.error('[Shopify Callback] Token exchange failed:', response.status, errorText);
+      let errorMessage = 'Token exchange failed';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error_description || errorData.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
       return NextResponse.redirect(
-        new URL(`/settings?shopify_error=${encodeURIComponent(errorData.error || 'Token exchange failed')}`, baseUrl)
+        new URL(`/settings?shopify_error=${encodeURIComponent(errorMessage)}`, APP_URL)
       );
     }
 
     const { access_token } = await response.json();
+    console.log('[Shopify Callback] Access token received successfully');
 
     // Get shop details for display name
     const shopResponse = await fetch(`https://${shop}/admin/api/2026-01/shop.json`, {
@@ -123,10 +151,29 @@ export async function GET(request: NextRequest) {
       const shopData = await shopResponse.json();
       shopName = shopData.shop?.name || shop;
       shopEmail = shopData.shop?.email || '';
+      console.log('[Shopify Callback] Shop details:', { shopName, shopEmail });
     }
 
-    // Store in database
-    const { error: insertError } = await supabase
+    // Use admin client to bypass RLS
+    const supabaseAdmin = createAdminClient();
+
+    // Ensure user profile exists in public.users to avoid foreign key violation
+    // We try to get the user from auth to get the email if possible
+    const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(userId);
+    
+    if (authUser) {
+      await supabaseAdmin
+        .from('users')
+        .upsert({
+          id: userId,
+          email: authUser.email,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id',
+        });
+    }
+
+    const { error: insertError } = await supabaseAdmin
       .from('stores')
       .upsert({
         user_id: userId,
@@ -140,19 +187,21 @@ export async function GET(request: NextRequest) {
       });
 
     if (insertError) {
-      console.error('Database insert error:', insertError);
+      console.error('[Shopify Callback] Database insert error:', insertError);
       return NextResponse.redirect(
-        new URL(`/settings?shopify_error=${encodeURIComponent('Failed to save store connection')}`, baseUrl)
+        new URL(`/settings?shopify_error=${encodeURIComponent('Failed to save store connection: ' + insertError.message)}`, APP_URL)
       );
     }
 
-    // Success - redirect to settings with success message
-    return NextResponse.redirect(new URL('/settings?shopify_connected=true', baseUrl));
+    console.log('[Shopify Callback] Store saved to database successfully!');
+
+    // Success — redirect back to the app
+    return NextResponse.redirect(new URL('/settings?shopify_connected=true', APP_URL));
   } catch (error) {
-    console.error('Shopify callback error:', error);
+    console.error('[Shopify Callback] Unexpected error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.redirect(
-      new URL(`/settings?shopify_error=${encodeURIComponent(errorMessage)}`, baseUrl)
+      new URL(`/settings?shopify_error=${encodeURIComponent(errorMessage)}`, APP_URL)
     );
   }
 }

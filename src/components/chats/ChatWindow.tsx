@@ -27,29 +27,43 @@ export default function ChatWindow({ conversation, onSendMessage, isLoading }: C
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0B0F1A] min-w-0">
-      {/* Chat header */}
-      <div className="h-16 px-6 flex items-center justify-between border-b border-white/5 shrink-0 bg-[#0B0F1A]">
+    <div
+      className="flex-1 flex flex-col min-w-0"
+      style={{ backgroundColor: "#F8FAFC" }}
+    >
+      <div
+        className="h-16 px-6 flex items-center justify-between shrink-0"
+        style={{ backgroundColor: "#FFFFFF", borderBottom: "0.67px solid #F1F5F9" }}
+      >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
+            style={{ background: "linear-gradient(135deg, #10B981, #059669)" }}
+          >
             {conversation.avatar}
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-white">{conversation.customerName}</h3>
+            <h3 className="text-sm font-semibold" style={{ color: "#0F172A" }}>{conversation.customerName}</h3>
             <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                conversation.status === "active" ? "bg-emerald-400" : conversation.status === "pending" ? "bg-amber-400" : "bg-gray-400"
-              }`}></span>
-              <span className="text-xs text-gray-400 capitalize">{conversation.status}</span>
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  backgroundColor:
+                    conversation.status === "active" ? "#10B981" : conversation.status === "pending" ? "#F59E0B" : "#94A3B8"
+                }}
+              ></span>
+              <span className="text-xs capitalize" style={{ color: "#64748B" }}>{conversation.status}</span>
             </div>
           </div>
         </div>
-        <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+        <button
+          className="p-2 rounded-lg transition-colors"
+          style={{ color: "#64748B" }}
+        >
           <MoreVertical className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
         {conversation.messages.map((msg) => {
           const isAI = msg.sender === "ai";
@@ -59,27 +73,39 @@ export default function ChatWindow({ conversation, onSendMessage, isLoading }: C
               className={`flex gap-3 ${isAI ? "justify-start" : "justify-end"}`}
             >
               {isAI && (
-                <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-indigo-600/20 border border-blue-500/20 flex items-center justify-center mt-1">
-                  <Bot className="w-4 h-4 text-[#3B82F6]" />
+                <div
+                  className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1"
+                  style={{ backgroundColor: "#F0FDF4", border: "0.67px solid #D1FAE5" }}
+                >
+                  <Bot className="w-4 h-4" style={{ color: "#10B981" }} />
                 </div>
               )}
               <div className={`max-w-[65%] group`}>
                 <div
-                  className={`px-4 py-3 text-sm leading-relaxed rounded-2xl ${
-                    isAI
-                      ? "bg-[#111827] border border-white/5 text-gray-200 rounded-tl-md"
-                      : "bg-[#3B82F6] text-white rounded-tr-md"
-                  }`}
+                  className="px-4 py-3 text-sm leading-relaxed"
+                  style={{
+                    borderRadius: isAI ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
+                    backgroundColor: isAI ? "#FFFFFF" : "#10B981",
+                    color: isAI ? "#0F172A" : "#FFFFFF",
+                    border: isAI ? "0.67px solid #F1F5F9" : "none",
+                    boxShadow: isAI ? "0 1px 2px rgba(0,0,0,0.05)" : "0 4px 6px -1px rgba(16, 185, 129, 0.2)"
+                  }}
                 >
                   {msg.text}
                 </div>
-                <span className={`text-[10px] text-gray-500 mt-1.5 block ${isAI ? "text-left" : "text-right"}`}>
+                <span
+                  className={`text-[10px] mt-1.5 block ${isAI ? "text-left" : "text-right"}`}
+                  style={{ color: "#64748B" }}
+                >
                   {msg.time}
                 </span>
               </div>
               {!isAI && (
-                <div className="shrink-0 w-8 h-8 rounded-full bg-[#111827] border border-white/10 flex items-center justify-center mt-1">
-                  <User className="w-4 h-4 text-gray-400" />
+                <div
+                  className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1"
+                  style={{ backgroundColor: "#F1F5F9", border: "0.67px solid #E2E8F0" }}
+                >
+                  <User className="w-4 h-4" style={{ color: "#64748B" }} />
                 </div>
               )}
             </div>
@@ -87,20 +113,39 @@ export default function ChatWindow({ conversation, onSendMessage, isLoading }: C
         })}
         {isLoading && (
           <div className="flex gap-3 justify-start animate-pulse">
-            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-600/10 border border-blue-500/10 flex items-center justify-center mt-1">
-              <Bot className="w-4 h-4 text-blue-500/50" />
+            <div
+              className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1"
+              style={{ backgroundColor: "#F0FDF4", border: "0.67px solid #D1FAE5" }}
+            >
+              <Bot className="w-4 h-4" style={{ color: "#10B981" }} />
             </div>
-            <div className="bg-[#111827] border border-white/5 text-gray-500 px-4 py-3 rounded-2xl rounded-tl-md text-sm">
+            <div
+              className="px-4 py-3 text-sm"
+              style={{
+                backgroundColor: "#FFFFFF",
+                border: "0.67px solid #F1F5F9",
+                borderRadius: "16px 16px 16px 4px",
+                color: "#64748B"
+              }}
+            >
               Thinking...
             </div>
           </div>
         )}
       </div>
 
-      {/* Input area */}
       <div className="px-6 pb-6 pt-2 shrink-0">
-        <div className="flex items-end gap-3 bg-[#111827] border border-white/10 rounded-2xl p-2 focus-within:border-[#3B82F6]/50 transition-colors">
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors shrink-0">
+        <div
+          className="flex items-end gap-3 rounded-2xl p-2 transition-colors"
+          style={{
+            backgroundColor: "#FFFFFF",
+            border: "0.67px solid #E2E8F0"
+          }}
+        >
+          <button
+            className="p-2 rounded-lg transition-colors shrink-0"
+            style={{ color: "#64748B" }}
+          >
             <Paperclip className="w-5 h-5" />
           </button>
           <textarea
@@ -110,20 +155,25 @@ export default function ChatWindow({ conversation, onSendMessage, isLoading }: C
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             disabled={isLoading}
-            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none resize-none py-2 max-h-32 disabled:opacity-50"
+            className="flex-1 bg-transparent text-sm outline-none resize-none py-2 max-h-32"
+            style={{ color: "#0F172A" }}
           />
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors shrink-0">
+          <button
+            className="p-2 rounded-xl transition-colors shrink-0"
+            style={{ color: "#64748B" }}
+          >
             <Smile className="w-5 h-5" />
           </button>
-          <button 
+          <button
             onClick={handleSend}
             disabled={!inputValue.trim() || isLoading}
-            className="p-2 bg-[#3B82F6] hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl transition-colors shrink-0"
+            className="p-2 rounded-xl transition-colors shrink-0 disabled:opacity-50"
+            style={{ backgroundColor: "#10B981", color: "#FFFFFF" }}
           >
             <Send className={`w-5 h-5 ${isLoading ? 'animate-pulse' : ''}`} />
           </button>
         </div>
-        <p className="text-[10px] text-gray-500 mt-2 text-center">
+        <p className="text-[10px] mt-2 text-center" style={{ color: "#64748B" }}>
           AI-powered responses are generated automatically. Review before sending to customers.
         </p>
       </div>

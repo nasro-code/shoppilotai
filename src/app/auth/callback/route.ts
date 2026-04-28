@@ -9,21 +9,27 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/'
 
   if (code) {
+    console.log('[Auth Callback] Code received, exchanging for session...')
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host') // localhost:3000
+    
+    if (error) {
+      console.error('[Auth Callback] Session exchange error:', error.message)
+    } else {
+      const forwardedHost = request.headers.get('x-forwarded-host')
       const isLocalEnv = process.env.NODE_ENV === 'development'
-      if (isLocalEnv) {
-        // we can be sure that there is no proxy involved in local dev
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
-      } else {
-        return NextResponse.redirect(`${origin}${next}`)
+      let targetUrl = `${origin}${next}`
+
+      if (!isLocalEnv && forwardedHost) {
+        targetUrl = `https://${forwardedHost}${next}`
       }
+
+      console.log('[Auth Callback] Success! Redirecting to:', targetUrl)
+      return NextResponse.redirect(targetUrl)
     }
   }
+
+  console.error('[Auth Callback] No code found or exchange failed, returning to login')
 
   // return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/login?error=auth-code-error`)

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  ShoppingCart, 
-  Settings, 
+import {
+  LayoutDashboard,
+  MessageSquare,
+  ShoppingCart,
+  Settings,
   LogOut,
   ChevronRight
 } from "lucide-react";
@@ -21,9 +21,19 @@ export default function Sidebar() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
     });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const navItems = [
@@ -42,18 +52,18 @@ export default function Sidebar() {
   const userInitial = user?.email?.[0].toUpperCase() || "A";
 
   return (
-    <aside className="w-64 h-screen fixed left-0 top-0 border-r border-white/5 flex flex-col z-50 shadow-2xl" style={{ backgroundColor: "#0B0F1A" }}>
-      <div className="h-16 flex items-center px-6 border-b border-white/5 shrink-0">
+    <aside className="w-64 h-screen fixed left-0 top-0 flex flex-col z-50 shadow-lg" style={{ backgroundColor: "#FFFFFF" }}>
+      <div className="h-16 flex items-center px-6 shrink-0" style={{ borderBottom: "0.67px solid #E2E8F0" }}>
         <div className="flex items-center gap-2">
-           <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
-             <div className="w-3 h-3 bg-white rounded-full shadow-[0_0_8px_white]"></div>
-           </div>
-           <h1 className="text-lg font-bold tracking-tight text-white">
-            AutoCommerce
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#10B981" }}>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#FFFFFF" }}></div>
+          </div>
+          <h1 className="text-lg font-semibold tracking-tight" style={{ color: "#0F172A" }}>
+            Shoppilot
           </h1>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -62,40 +72,49 @@ export default function Sidebar() {
               key={item.name}
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative ${
-                isActive 
-                  ? "bg-blue-500/10 text-blue-400 font-semibold shadow-[inset_0_0_12px_rgba(59,130,246,0.1)]" 
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                isActive
+                  ? "text-white font-semibold shadow-md"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
               }`}
+              style={isActive ? { backgroundColor: "#10B981" } : {}}
             >
               {isActive && (
-                <div className="absolute left-0 w-1 h-6 bg-blue-500 rounded-r-full"></div>
+                <div className="absolute left-0 w-1 h-6 rounded-r-full" style={{ backgroundColor: "#0F172A" }}></div>
               )}
-              <item.icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-blue-400" : "text-gray-500 group-hover:text-gray-300"}`} />
-              <span className="text-sm">{item.name}</span>
+              <item.icon
+                className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${
+                  isActive ? "text-white" : "text-gray-400 group-hover:text-gray-600"
+                }`}
+              />
+              <span className="text-sm" style={isActive ? { color: "#FFFFFF" } : {}}>{item.name}</span>
               {isActive && (
-                <ChevronRight className="w-3 h-3 ml-auto text-blue-400/50" />
+                <ChevronRight className="w-3 h-3 ml-auto opacity-50" style={{ color: "#FFFFFF" }} />
               )}
             </Link>
           );
         })}
       </div>
-      
-      <div className="p-4 border-t border-white/5 space-y-3">
+
+      <div className="p-4 space-y-3" style={{ borderTop: "0.67px solid #E2E8F0" }}>
         {user && (
-          <div className="flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/5">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-lg">
+          <div className="flex items-center gap-3 p-2 rounded-xl" style={{ backgroundColor: "#F8FAFC", border: "0.67px solid #E2E8F0" }}>
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white shadow-md"
+              style={{ background: "linear-gradient(135deg, #10B981, #059669)" }}
+            >
               {userInitial}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold text-white truncate">{user.email?.split('@')[0]}</p>
-              <p className="text-[10px] text-gray-500 truncate font-medium">{user.email}</p>
+              <p className="text-xs font-semibold truncate" style={{ color: "#0F172A" }}>{user.email?.split('@')[0]}</p>
+              <p className="text-[10px] truncate font-medium" style={{ color: "#64748B" }}>{user.email}</p>
             </div>
           </div>
         )}
-        
-        <button 
+
+        <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-400/5 transition-all duration-300 group"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group"
+          style={{ color: "#64748B" }}
         >
           <LogOut className="w-5 h-5 group-hover:rotate-12 transition-transform" />
           <span className="text-sm font-medium">Log Out</span>
